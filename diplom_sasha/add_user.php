@@ -1,80 +1,76 @@
 <?php
-
 session_start();
 
 if (!isset($_SESSION['user'])) {
-
-header('HTTP/1.1 403 Forbidden');
-
-exit();
-
+    header('HTTP/1.1 403 Forbidden');
+    exit();
 }
 
 $dbFilePath = __DIR__ . '/users.db';
 
 try {
+    $pdo = new PDO("sqlite:$dbFilePath");
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->exec("PRAGMA busy_timeout = 5000"); // Set busy timeout
 
-$pdo = new PDO("sqlite:$dbFilePath");
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
+        $username = trim($_POST['username']);
 
-$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        if (empty($username)) {
+            echo json_encode(['status' => 'error', 'message' => 'Имя пользователя не может быть пустым.']);
+            exit();
+        }
 
+        // Check if username already exists
+        $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = :username");
+        $checkStmt->bindParam(':username', $username);
+        $checkStmt->execute();
+        $userCount = $checkStmt->fetchColumn();
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
+        if ($userCount > 0) {
+            echo json_encode(['status' => 'error', 'message' => 'Имя пользователя уже занято.']);
+            exit();
+        }
 
-$username = trim($_POST['username']);
+        $password = bin2hex(random_bytes(4));
+        $createdAt = date('Y-m-d H:i:s');
 
-if (empty($username)) {
+        // Start a transaction
+        $pdo->beginTransaction();
 
-echo json_encode(['status' => 'error', 'message' => 'Имя пользователя не может быть пустым.']);
+        try {
+            // Insert into users table
+            $stmt = $pdo->prepare("INSERT INTO users (username, password, role, created_at) VALUES (:username, :password, 'teacher', :createdAt)");
+            $stmt->bindParam(':username', $username);
+            $stmt->bindParam(':password', $password);
+            $stmt->bindParam(':createdAt', $createdAt);
+            $stmt->execute();
 
-exit();
+            $lastId = $pdo->lastInsertId();
 
-}
+            // Create a new group
+            $groupStmt = $pdo->prepare("INSERT INTO groups (name) VALUES (:groupName)");
+            $groupStmt->bindParam(':groupName', $username);
+            $groupStmt->execute();
 
-$checkStmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = :username");
+            $groupId = $pdo->lastInsertId();
 
-$checkStmt->bindParam(':username', $username);
+            // Update the user's group_id
+            $updateUserStmt = $pdo->prepare("UPDATE users SET group_id = :groupId WHERE id = :userId");
+            $updateUserStmt->bindParam(':groupId', $groupId);
+            $updateUserStmt->bindParam(':userId', $lastId);
+            $updateUserStmt->execute();
 
-$checkStmt->execute();
+            // Commit the transaction
+            $pdo->commit();
 
-$userCount = $checkStmt->fetchColumn();
-
-if ($userCount > 0) {
-
-echo json_encode(['status' => 'error', 'message' => 'Имя пользователя уже занято.']);
-
-exit();
-
-} else {
-
-$password = bin2hex(random_bytes(4));
-
-$createdAt = date('Y-m-d H:i:s'); // Текущая дата и время
-
-$stmt = $pdo->prepare("INSERT INTO users (username, password, role, created_at) VALUES (:username, :password, 'teacher', :createdAt)");
-
-$stmt->bindParam(':username', $username);
-
-$stmt->bindParam(':password', $password);
-
-$stmt->bindParam(':createdAt', $createdAt);
-
-$stmt->execute();
-
-$lastId = $pdo->lastInsertId();
-
-echo json_encode(['status' => 'success', 'id' => $lastId, 'password' => $password, 'created_at' => $createdAt]);
-
-exit();
-
-}
-
-}
-
+            echo json_encode(['status' => 'success', 'id' => $lastId, 'password' => $password, 'created_at' => $createdAt]);
+        } catch (Exception $e) {
+            $pdo->rollBack(); // Rollback on error
+            echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+        }
+    }
 } catch (PDOException $e) {
-
-echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
-
+    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
 }
-
 ?>

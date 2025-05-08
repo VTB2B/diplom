@@ -16,7 +16,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         if ($user && $user['password'] === $password) {
             $_SESSION['user'] = $user['username'];
-            header('Location: dashboard.php');
+            $_SESSION['role'] = $user['role']; // Сохраняем роль пользователя в сессии
+
+            // Перенаправление на соответствующую страницу
+            if ($user['role'] === 'teacher') {
+                header('Location: teacher.php');
+            } else {
+                header('Location: dashboard.php');
+            }
             exit();
         } else {
             $error = "Неверный логин или пароль";

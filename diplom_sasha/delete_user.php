@@ -15,20 +15,29 @@ try {
         $userId = $_POST['userId'];
 
         // Проверка существования пользователя
-        $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE id = :id");
+        $checkStmt = $pdo->prepare("SELECT group_id FROM users WHERE id = :id");
         $checkStmt->bindParam(':id', $userId);
         $checkStmt->execute();
-        $userExists = $checkStmt->fetchColumn();
+        $user = $checkStmt->fetch();
 
-        if ($userExists == 0) {
+        if (!$user) {
             echo json_encode(['status' => 'error', 'message' => 'Пользователь не существует.']);
             exit();
         }
+
+        $groupId = $user['group_id'];
 
         // Удаление пользователя
         $stmt = $pdo->prepare("DELETE FROM users WHERE id = :id");
         $stmt->bindParam(':id', $userId);
         $stmt->execute();
+
+        // Удаление группы, если она существует
+        if ($groupId) {
+            $deleteGroupStmt = $pdo->prepare("DELETE FROM groups WHERE id = :groupId");
+            $deleteGroupStmt->bindParam(':groupId', $groupId);
+            $deleteGroupStmt->execute();
+        }
 
         echo json_encode(['status' => 'success']);
         exit();
