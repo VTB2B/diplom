@@ -11,21 +11,20 @@ $dbFilePath = __DIR__ . '/users.db';
 try {
     $pdo = new PDO("sqlite:$dbFilePath");
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $pdo->exec("PRAGMA busy_timeout = 5000"); // Set busy timeout
+    $pdo->exec("PRAGMA busy_timeout = 5000");
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
         $username = trim($_POST['username']);
         $firstname = trim($_POST['firstname']);
         $lastname = trim($_POST['lastname']);
         $family = trim($_POST['family']);
-        $groupId = trim($_POST['groupId']); // Get the group ID from the request
+        $groupId = trim($_POST['groupId']);
 
         if (empty($username) || empty($firstname) || empty($lastname) || empty($family)) {
             echo json_encode(['status' => 'error', 'message' => 'Все поля обязательны для заполнения.']);
             exit();
         }
 
-        // Check if username already exists
         $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = :username");
         $checkStmt->bindParam(':username', $username);
         $checkStmt->execute();
@@ -36,14 +35,12 @@ try {
             exit();
         }
 
-        $password = bin2hex(random_bytes(4)); // Generate random password
+        $password = bin2hex(random_bytes(4));
         $createdAt = date('Y-m-d H:i:s');
 
-        // Start a transaction
         $pdo->beginTransaction();
 
         try {
-            // Insert into users table as a student
             $stmt = $pdo->prepare("INSERT INTO users (username, password, role, created_at, firstname, lastname, family, group_id) VALUES (:username, :password, 'student', :createdAt, :firstname, :lastname, :family, :groupId)");
             $stmt->bindParam(':username', $username);
             $stmt->bindParam(':password', $password);
@@ -55,13 +52,11 @@ try {
             $stmt->execute();
 
             $lastId = $pdo->lastInsertId();
-
-            // Commit the transaction
             $pdo->commit();
 
-            echo json_encode(['status' => 'success', 'id' => $lastId, 'password' => $password, 'created_at' => $createdAt]);
+            echo json_encode(['status' => 'success', 'id' => $lastId, 'password' => $password]);
         } catch (Exception $e) {
-            $pdo->rollBack(); // Rollback on error
+            $pdo->rollBack();
             echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
         }
     }
