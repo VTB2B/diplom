@@ -1,4 +1,5 @@
 <?php
+
 session_start();
 
 if (!isset($_SESSION['user'])) {
@@ -11,21 +12,15 @@ $dbFilePath = __DIR__ . '/users.db';
 try {
     $pdo = new PDO("sqlite:$dbFilePath");
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $pdo->exec("PRAGMA busy_timeout = 5000"); // Set busy timeout
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
         $username = trim($_POST['username']);
-        $firstname = trim($_POST['firstname']);
-        $lastname = trim($_POST['lastname']);
-        $family = trim($_POST['family']);
-        $groupId = trim($_POST['groupId']); // Get the group ID from the request
 
-        if (empty($username) || empty($firstname) || empty($lastname) || empty($family)) {
-            echo json_encode(['status' => 'error', 'message' => 'Все поля обязательны для заполнения.']);
+        if (empty($username)) {
+            echo json_encode(['status' => 'error', 'message' => 'Имя пользователя не может быть пустым.']);
             exit();
         }
 
-        // Check if username already exists
         $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = :username");
         $checkStmt->bindParam(':username', $username);
         $checkStmt->execute();
@@ -34,38 +29,35 @@ try {
         if ($userCount > 0) {
             echo json_encode(['status' => 'error', 'message' => 'Имя пользователя уже занято.']);
             exit();
-        }
+        } else {
+            // Create a new group
+            $groupStmt = $pdo->prepare("INSERT INTO groups (name) VALUES (:name)");
+            $groupStmt->bindParam(':name', $username);
+            $groupStmt->execute();
 
-        $password = bin2hex(random_bytes(4)); // Generate random password
-        $createdAt = date('Y-m-d H:i:s');
+            // Get the last inserted group ID
+            $groupId = $pdo->lastInsertId();
 
-        // Start a transaction
-        $pdo->beginTransaction();
+            // Create a random password
+            $password = bin2hex(random_bytes(4));
+            $createdAt = date('Y-m-d H:i:s'); // Current date and time
 
-        try {
-            // Insert into users table as a student
-            $stmt = $pdo->prepare("INSERT INTO users (username, password, role, created_at, firstname, lastname, family, group_id) VALUES (:username, :password, 'student', :createdAt, :firstname, :lastname, :family, :groupId)");
+            // Insert the new user with the group ID
+            $stmt = $pdo->prepare("INSERT INTO users (username, password, role, created_at, group_id) VALUES (:username, :password, 'teacher', :createdAt, :groupId)");
             $stmt->bindParam(':username', $username);
             $stmt->bindParam(':password', $password);
             $stmt->bindParam(':createdAt', $createdAt);
-            $stmt->bindParam(':firstname', $firstname);
-            $stmt->bindParam(':lastname', $lastname);
-            $stmt->bindParam(':family', $family);
             $stmt->bindParam(':groupId', $groupId);
             $stmt->execute();
 
             $lastId = $pdo->lastInsertId();
 
-            // Commit the transaction
-            $pdo->commit();
-
-            echo json_encode(['status' => 'success', 'id' => $lastId, 'password' => $password, 'created_at' => $createdAt]);
-        } catch (Exception $e) {
-            $pdo->rollBack(); // Rollback on error
-            echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+            echo json_encode(['status' => 'success', 'id' => $lastId, 'password' => $password, 'created_at' => $createdAt, 'group_id' => $groupId]);
+            exit();
         }
     }
 } catch (PDOException $e) {
     echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
 }
+
 ?>

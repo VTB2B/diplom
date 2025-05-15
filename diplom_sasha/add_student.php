@@ -15,6 +15,7 @@ try {
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
         $username = trim($_POST['username']);
+        $password = trim($_POST['password']);
         $firstname = trim($_POST['firstname']);
         $lastname = trim($_POST['lastname']);
         $family = trim($_POST['family']);
@@ -54,7 +55,7 @@ try {
             $lastId = $pdo->lastInsertId();
             $pdo->commit();
 
-            echo json_encode(['status' => 'success', 'id' => $lastId, 'password' => $password]);
+            echo json_encode(['status' => 'success', 'id' => $lastId, 'password' => $password, 'family' => $family, 'firstname' => $firstname, 'lastname' => $lastname, 'username' => $username]);
         } catch (Exception $e) {
             $pdo->rollBack();
             echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);

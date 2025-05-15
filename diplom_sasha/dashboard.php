@@ -38,7 +38,7 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Панель администратора</title>
     <style>
-    body {
+        body {
             font-family: 'Roboto', sans-serif;
             margin: 0;
             display: flex;
@@ -51,7 +51,7 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
             overflow: hidden;
         }
         .error-message {
-    color: red; /* Красный цвет для сообщений об ошибках */
+            color: red; /* Красный цвет для сообщений об ошибках */
         }
         .sidebar {
             width: 250px;
@@ -186,7 +186,7 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
             display: none;
             text-align: center;
         }
-        input[type="text"] {
+        input[type="text"], input[type="password"] {
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 5px;
@@ -367,7 +367,7 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 } else {
                     userMessage.textContent = 'Пользователь добавлен! Пароль: ' + response.password;
                     userMessage.classList.remove('error-message'); // Удаляем класс ошибки
-                    addUserToTable(response.id, username, response.password, response.created_at); // Добавьте дату регистрации
+                    addUserToTable(response.id, username, response.password, response.created_at); // Добавление пользователя в таблицу
                     usernameInput.value = ''; // Очистите поле ввода
                 }
             };
